@@ -5,12 +5,11 @@ go 1.17
 require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/kaspanet/go-secp256k1 v0.0.7
-	github.com/kaspanet/kaspad v0.11.10-rc1
+	github.com/kaspanet/kaspad v0.12.0
 	github.com/pkg/errors v0.9.1
 )
 
 require (
-	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jrick/logrotate v1.0.0 // indirect
