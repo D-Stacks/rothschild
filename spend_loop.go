@@ -236,7 +236,7 @@ func updateState(availableUTXOs map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEn
 		delete(availableUTXOs, *utxo.Outpoint)
 	}
 	for outpoint, selectionTime := range reservedOutpoints {
-		if time.Since(selectionTime).Seconds() > 15 {
+		if time.Since(selectionTime).Seconds() > 60 {
 			delete(reservedOutpoints, outpoint)
 		}
 	}
