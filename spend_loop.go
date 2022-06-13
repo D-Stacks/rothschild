@@ -28,6 +28,8 @@ import (
 )
 
 var pendingOutpoints = map[appmessage.RPCOutpoint]time.Time{}
+var reservedOutpoints = map[appmessage.RPCOutpoint]time.Time{}
+
 
 func spendLoop(client *rpcclient.RPCClient, addresses *addressesList,
 	utxosChangedNotificationChan <-chan *appmessage.UTXOsChangedNotificationMessage) <-chan struct{} {
@@ -219,6 +221,9 @@ func isUTXOSpendable(entry *appmessage.UTXOsByAddressesEntry, virtualSelectedPar
 		const minConfirmations = 10
 		return blockDAAScore+minConfirmations < virtualSelectedParentBlueScore
 	}
+	if _, found := reservedOutpoints[*entry.Outpoint]; found {
+		return false
+	}
 	coinbaseMaturity := activeConfig().ActiveNetParams.BlockCoinbaseMaturity
 	return blockDAAScore+coinbaseMaturity < virtualSelectedParentBlueScore
 }
@@ -229,6 +234,11 @@ func updateState(availableUTXOs map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEn
 	for _, utxo := range selectedUTXOs {
 		pendingOutpoints[*utxo.Outpoint] = time.Now()
 		delete(availableUTXOs, *utxo.Outpoint)
+	}
+	for outpoint, selectionTime := range reservedOutpoints {
+		if time.Since(selectionTime).Seconds() > 15 {
+			delete(reservedOutpoints, outpoint)
+		}
 	}
 }
 
@@ -272,6 +282,10 @@ func selectUTXOs(utxos map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEntry, amou
 	selectedValue = uint64(0)
 
 	for outpoint, utxo := range utxos {
+		if _, found := reservedOutpoints[outpoint]; found {
+			continue
+		}
+		reservedOutpoints[outpoint] = time.Now()
 		outpointCopy := outpoint
 		selectedUTXOs = append(selectedUTXOs, &appmessage.UTXOsByAddressesEntry{
 			Outpoint:  &outpointCopy,
