@@ -66,12 +66,17 @@ func spendLoop(client *rpcclient.RPCClient, addresses *addressesList,
 
 			checkTransactions(utxosChangedNotificationChan)
 
-			if !hasFunds {
-				log.Infof("No funds. Refetching UTXO set.")
+			for !hasFunds {
 				utxos, err = fetchSpendableUTXOs(client, addresses.myAddress.EncodeAddress())
 				if err != nil {
 					panic(err)
 				}
+				
+				hasFunds, err = maybeSendTransaction(client, addresses, utxos)
+				if err != nil {
+					panic(err)
+				}
+				log.Infof("No funds. Refetching UTXO set.")
 			}
 
 			if atomic.LoadInt32(&shutdown) != 0 {
@@ -101,6 +106,7 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 					removed.Outpoint.TransactionID, removed.Outpoint.Index, time.Now().Sub(sendTime))
 
 				delete(pendingOutpoints, *removed.Outpoint)
+				delete(reservedOutpoints, *removed.Outpoint)
 			}
 		default:
 			isDone = true
@@ -236,7 +242,7 @@ func updateState(availableUTXOs map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEn
 		delete(availableUTXOs, *utxo.Outpoint)
 	}
 	for outpoint, selectionTime := range reservedOutpoints {
-		if time.Since(selectionTime).Seconds() > 60 {
+		if time.Since(selectionTime).Seconds() > 30 {
 			delete(reservedOutpoints, outpoint)
 		}
 	}

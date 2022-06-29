@@ -1,11 +1,11 @@
-module github.com/someone235/rothschild
+module github.com/D-stacks/rothschild
 
 go 1.17
 
 require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/kaspanet/go-secp256k1 v0.0.7
-	github.com/kaspanet/kaspad v0.12.1
+	github.com/kaspanet/kaspad v0.12.3
 	github.com/pkg/errors v0.9.1
 )
 
