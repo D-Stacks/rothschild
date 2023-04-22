@@ -118,7 +118,7 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 					sum += (time_deltas[i].Nanoseconds())
 				}
 				sum = sum / int64(len(time_deltas))
-				log.Infof("avg. time until utxo accepted: %s", time.Duration(sum))
+				log.Infof("avg. time until utxos are first accepted: %s", time.Duration(sum))
 			}
 		default:
 			isDone = true
@@ -127,7 +127,7 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 
 	for pendingOutpoint, txTime := range pendingOutpoints {
 		timeSince := time.Now().Sub(txTime)
-		if timeSince > 10*time.Minute {
+		if timeSince > 2*time.Minute {
 			log.Tracef("Outpoint %s:%d is pending for %s",
 				pendingOutpoint.TransactionID, pendingOutpoint.Index, timeSince)
 		}
@@ -242,6 +242,9 @@ func isUTXOSpendable(entry *appmessage.UTXOsByAddressesEntry, virtualSelectedPar
 	if _, found := reservedOutpoints[*entry.Outpoint]; found {
 		return false
 	}
+	if _, found := pendingOutpoints[*entry.Outpoint]; found {
+		return false
+	}
 	coinbaseMaturity := activeConfig().ActiveNetParams.BlockCoinbaseMaturity
 	return blockDAAScore+coinbaseMaturity < virtualSelectedParentBlueScore
 }
@@ -254,7 +257,7 @@ func updateState(availableUTXOs map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEn
 		delete(availableUTXOs, *utxo.Outpoint)
 	}
 	for outpoint, selectionTime := range reservedOutpoints {
-		if time.Since(selectionTime).Seconds() > 30 {
+		if time.Since(selectionTime).Seconds() > 120 {
 			delete(reservedOutpoints, outpoint)
 		}
 	}
