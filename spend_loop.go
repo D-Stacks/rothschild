@@ -102,7 +102,7 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 					continue // this is coinbase transaction paying to our address or some transaction from an old run
 				}
 
-				log.Infof("Output %s:%d accepted. Time since send: %s",
+				log.Tracef("Output %s:%d accepted. Time since send: %s",
 					removed.Outpoint.TransactionID, removed.Outpoint.Index, time.Now().Sub(sendTime))
 
 				delete(pendingOutpoints, *removed.Outpoint)
@@ -180,7 +180,7 @@ func maybeSendTransaction(client *rpcclient.RPCClient, addresses *addressesList,
 			}
 			log.Warnf("Double spend error: %s", err)
 		} else {
-			log.Infof("Sent transaction %s worth %f kaspa with %d inputs and %d outputs", transactionID,
+			log.Tracef("Sent transaction %s worth %f kaspa with %d inputs and %d outputs", transactionID,
 				float64(sendAmount)/constants.SompiPerKaspa, len(rpcTransaction.Inputs), len(rpcTransaction.Outputs))
 			func() {
 				stats.Lock()

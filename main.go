@@ -56,6 +56,20 @@ func main() {
 		panic(err)
 	}
 
+	highest_tx_count := 0
+	err = client.RegisterForBlockAddedNotifications(
+		func(notification *appmessage.BlockAddedNotificationMessage) {
+			num_of_txs := len(notification.Block.VerboseData.TransactionIDs)
+			log.Infof("Found block %s with %d Txs", notification.Block.VerboseData.Hash, num_of_txs)
+			if num_of_txs > highest_tx_count {
+				highest_tx_count = num_of_txs
+				log.Infof("New Highest Tx per block: %d", highest_tx_count)
+			}
+		})
+	if err != nil {
+		panic(err)
+	}
+
 	spendLoopDoneChan := spendLoop(client, addresses, utxosChangedNotificationChan)
 
 	<-interrupt
