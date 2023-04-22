@@ -76,7 +76,8 @@ func spendLoop(client *rpcclient.RPCClient, addresses *addressesList,
 				if err != nil {
 					panic(err)
 				}
-				log.Infof("No funds. Refetching UTXO set.")
+				log.Infof("No funds. Refetching UTXO set in T minus 10 seconds")
+				time.Sleep(10 * time.Second)
 			}
 
 			if atomic.LoadInt32(&shutdown) != 0 {
@@ -106,8 +107,6 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 				log.Tracef("Output %s:%d accepted. Time since send: %s",
 					removed.Outpoint.TransactionID, removed.Outpoint.Index, time.Now().Sub(sendTime))
 				time_deltas = append(time_deltas, time.Now().Sub(sendTime))
-				delete(pendingOutpoints, *removed.Outpoint)
-				delete(reservedOutpoints, *removed.Outpoint)
 			}
 			if len(time_deltas) > 0 {
 			
@@ -219,21 +218,45 @@ func fetchSpendableUTXOs(client *rpcclient.RPCClient, address string) (map[appme
 	if err != nil {
 		return nil, err
 	}
+
 	dagInfo, err := client.GetBlockDAGInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	mempoolOutpoints, err := fetchMempoolOutpoints(client, address)
 	if err != nil {
 		return nil, err
 	}
 
 	spendableUTXOs := make(map[appmessage.RPCOutpoint]*appmessage.RPCUTXOEntry, 0)
 	for _, entry := range getUTXOsByAddressesResponse.Entries {
-		if !isUTXOSpendable(entry, dagInfo.VirtualDAAScore) {
+		if !isUTXOSpendable(entry, dagInfo.VirtualDAAScore, mempoolOutpoints) {
 			continue
 		}
 		spendableUTXOs[*entry.Outpoint] = entry.UTXOEntry
 	}
 	return spendableUTXOs, nil
 }
-func isUTXOSpendable(entry *appmessage.UTXOsByAddressesEntry, virtualSelectedParentBlueScore uint64) bool {
+
+func fetchMempoolOutpoints(client *rpcclient.RPCClient, address string) (map[appmessage.RPCOutpoint]bool, error) {
+	getMempoolEntriesByAddressesResponse, err := client.GetMempoolEntriesByAddresses([]string{address}, true, false)
+	if err != nil {
+		return nil, err
+	}
+
+	mempoolOutpoints := make(map[appmessage.RPCOutpoint]bool)
+
+	for _, sendingEntry := range getMempoolEntriesByAddressesResponse.Entries[0].Sending {
+		for _, input := range sendingEntry.Transaction.Inputs {
+			mempoolOutpoints[*input.PreviousOutpoint] = true
+		}
+	}
+
+	return mempoolOutpoints, nil
+}
+
+func isUTXOSpendable(entry *appmessage.UTXOsByAddressesEntry, virtualSelectedParentBlueScore uint64, mempoolOutpoints map[appmessage.RPCOutpoint]bool) bool {
 	blockDAAScore := entry.UTXOEntry.BlockDAAScore
 	if !entry.UTXOEntry.IsCoinbase {
 		const minConfirmations = 10
@@ -243,6 +266,9 @@ func isUTXOSpendable(entry *appmessage.UTXOsByAddressesEntry, virtualSelectedPar
 		return false
 	}
 	if _, found := pendingOutpoints[*entry.Outpoint]; found {
+		return false
+	}
+	if _, found := mempoolOutpoints[*entry.Outpoint]; found {
 		return false
 	}
 	coinbaseMaturity := activeConfig().ActiveNetParams.BlockCoinbaseMaturity

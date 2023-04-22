@@ -70,6 +70,27 @@ func main() {
 		panic(err)
 	}
 
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+		select {
+			case <- ticker.C:
+				orphanCount := 0
+				getMempoolEntries, err := client.GetMempoolEntries(true, false)
+				if err != nil {
+					panic(err)
+				}
+				mempoolSize := len(getMempoolEntries.Entries)
+				for _, mempoolEntry := range getMempoolEntries.Entries {
+					if mempoolEntry.IsOrphan {
+						orphanCount += 1
+					}
+				}
+				log.Infof("Mempool Occupied: %d , Orphans: %d", mempoolSize, orphanCount)
+			}
+		}
+	}()
+
 	spendLoopDoneChan := spendLoop(client, addresses, utxosChangedNotificationChan)
 
 	<-interrupt
