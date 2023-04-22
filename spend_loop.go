@@ -96,6 +96,7 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 	for !isDone {
 		select {
 		case notification := <-utxosChangedNotificationChan:
+			time_deltas := []time.Duration{}
 			for _, removed := range notification.Removed {
 				sendTime, ok := pendingOutpoints[*removed.Outpoint]
 				if !ok {
@@ -104,9 +105,20 @@ func checkTransactions(utxosChangedNotificationChan <-chan *appmessage.UTXOsChan
 
 				log.Tracef("Output %s:%d accepted. Time since send: %s",
 					removed.Outpoint.TransactionID, removed.Outpoint.Index, time.Now().Sub(sendTime))
-
+				time_deltas = append(time_deltas, time.Now().Sub(sendTime))
 				delete(pendingOutpoints, *removed.Outpoint)
 				delete(reservedOutpoints, *removed.Outpoint)
+			}
+			if len(time_deltas) > 0 {
+			
+				sum := int64(0)
+
+				for i := 0; i < len(time_deltas); i++ {
+					// adding the values of array to the variable sum
+					sum += (time_deltas[i].Nanoseconds())
+				}
+				sum = sum / int64(len(time_deltas))
+				log.Infof("avg. time until utxo accepted: %s", time.Duration(sum))
 			}
 		default:
 			isDone = true
